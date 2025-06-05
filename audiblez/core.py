@@ -196,17 +196,38 @@ def gen_audio_segments(pipeline, text, voice, speed, stats=None, max_sentences=N
     audio_segments = []
     doc = nlp(text)
     sentences = list(doc.sents)
-    for i, sent in enumerate(sentences):
-        if max_sentences and i > max_sentences: break
-        for gs, ps, audio in pipeline(sent.text, voice=voice, speed=speed, split_pattern=r'\n\n\n'):
-            audio_segments.append(audio)
-        if stats:
-            stats.processed_chars += len(sent.text)
-            stats.progress = stats.processed_chars * 100 // stats.total_chars
-            stats.eta = strfdelta((stats.total_chars - stats.processed_chars) / stats.chars_per_sec)
-            if post_event: post_event('CORE_PROGRESS', stats=stats)
-            print(f'Estimated time remaining: {stats.eta}')
-            print('Progress:', f'{stats.progress}%\n')
+    
+    from tqdm import tqdm
+    
+    pbar = tqdm(
+        total=len(sentences),
+        desc="Processing",
+        bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]',
+        postfix=f"ETA: Calculating..."
+    )
+    
+    try:
+        for i, sent in enumerate(sentences):
+            if max_sentences and i > max_sentences: 
+                break
+                
+            for gs, ps, audio in pipeline(sent.text, voice=voice, speed=speed, split_pattern=r'\n\n\n'):
+                audio_segments.append(audio)
+                
+            if stats:
+                stats.processed_chars += len(sent.text)
+                stats.progress = stats.processed_chars * 100 // stats.total_chars
+                stats.eta = strfdelta((stats.total_chars - stats.processed_chars) / stats.chars_per_sec) if stats.chars_per_sec > 0 else "Calculating..."
+                
+                pbar.set_postfix({"ETA": stats.eta, "Progress": f"{stats.progress}%"})
+                pbar.update(1)
+                
+                if post_event: 
+                    post_event('CORE_PROGRESS', stats=stats)
+                    
+    finally:
+        pbar.close()
+        
     return audio_segments
 
 
