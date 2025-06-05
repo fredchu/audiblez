@@ -231,34 +231,51 @@ def gen_audio_segments(pipeline, text, voice, speed, stats=None, max_sentences=N
     return audio_segments
 
 
-def gen_text(text, voice='af_heart', output_file='text.wav', speed=1, play=False):
-    lang_code = voice[:1]
-    pipeline = KPipeline(lang_code=lang_code)
-    load_spacy()
-    audio_segments = gen_audio_segments(pipeline, text, voice=voice, speed=speed);
-    final_audio = np.concatenate(audio_segments)
-    soundfile.write(output_file, final_audio, sample_rate)
-    if play:
-        subprocess.run(['ffplay', '-autoexit', '-nodisp', output_file])
-
-
 def find_document_chapters_and_extract_texts(book):
     """Returns every chapter that is an ITEM_DOCUMENT and enriches each chapter with extracted_text."""
+    def is_cjk(char):
+        """檢查字符是否為中日韓文字"""
+        cp = ord(char)
+        return (0x4E00 <= cp <= 0x9FFF or  # CJK Unified Ideographs
+                0x3000 <= cp <= 0x303F or  # CJK Symbols and Punctuation
+                0xFF00 <= cp <= 0xFFEF or  # Halfwidth and Fullwidth Forms
+                0x2000 <= cp <= 0x206F)    # General Punctuation
+
+    def get_appropriate_punctuation(text):
+        """根據文本結尾返回適當的標點符號"""
+        if not text.strip():
+            return ''
+        last_char = text[-1]
+        if is_cjk(last_char):
+            return '。'  # 中文句號
+        elif last_char in '.,!?;:。，！？；：':
+            return ''    # 已經有標點，不需要再加
+        else:
+            return '.'   # 英文句點
+
     document_chapters = []
     for chapter in book.get_items():
         if chapter.get_type() != ebooklib.ITEM_DOCUMENT:
             continue
+            
         xml = chapter.get_body_content()
         soup = BeautifulSoup(xml, features='lxml')
         chapter.extracted_text = ''
         html_content_tags = ['title', 'p', 'h1', 'h2', 'h3', 'h4', 'li']
-        for text in [c.text.strip() for c in soup.find_all(html_content_tags) if c.text]:
-            if not text.endswith('.'):
-                text += '.'
-            chapter.extracted_text += text + '\n'
+        
+        for elem in soup.find_all(html_content_tags):
+            if not elem.text.strip():  # 跳過空元素
+                continue
+                
+            text = elem.text.strip()
+            punctuation = get_appropriate_punctuation(text)
+            chapter.extracted_text += text + punctuation + '\n'
+            
         document_chapters.append(chapter)
+    
     for i, c in enumerate(document_chapters):
-        c.chapter_index = i  # this is used in the UI to identify chapters
+        c.chapter_index = i
+        
     return document_chapters
 
 
