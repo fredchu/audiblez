@@ -109,11 +109,17 @@ For more detaila about voice quality, check this document: [Kokoro-82M voices](h
 
 ## How to run on GPU
 
-By default, audiblez runs on CPU. If you pass the option `--cuda` it will try to use the Cuda device via Torch.
+By default, audiblez runs on CPU. You can use `--cuda` to run on a CUDA capable GPU,
+or `--mps` on Apple Silicon. When using MPS you may need to set
+`PYTORCH_ENABLE_MPS_FALLBACK=1`.
 
 Check out this example: [Audiblez running on a Google Colab Notebook with Cuda ](https://colab.research.google.com/drive/164PQLowogprWQpRjKk33e-8IORAvqXKI?usp=sharing]).
 
-We don't currently support Apple Silicon, as there is not yet a Kokoro implementation in MLX. As soon as it will be available, we will support it.
+Example command for MPS:
+
+```bash
+PYTORCH_ENABLE_MPS_FALLBACK=1 audiblez book.epub --mps
+```
 
 ## Manually pick chapters to convert
 
@@ -126,7 +132,7 @@ To do so, you can use `--pick` to interactively choose the chapters to convert (
 For all the options available, you can check the help page `audiblez --help`:
 
 ```
-usage: audiblez [-h] [-v VOICE] [-p] [-s SPEED] [-c] [-o FOLDER] epub_file_path
+usage: audiblez [-h] [-v VOICE] [-p] [-s SPEED] [-c] [-m] [-o FOLDER] epub_file_path
 
 positional arguments:
   epub_file_path        Path to the epub file
@@ -139,11 +145,13 @@ options:
   -s SPEED, --speed SPEED
                         Set speed from 0.5 to 2.0
   -c, --cuda            Use GPU via Cuda in Torch if available
+  -m, --mps             Use Apple MPS backend in Torch if available
   -o FOLDER, --output FOLDER
                         Output folder for the audiobook and temporary files
 
 example:
-  audiblez book.epub -l en-us -v af_sky
+  audiblez book.epub -l en-us -v af_sky --cuda
+  audiblez book.epub -l en-us -v af_sky --mps
 
 to use the GUI, run:
   audiblez-ui
